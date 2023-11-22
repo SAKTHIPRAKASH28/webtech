@@ -1,0 +1,404 @@
+server.js:
+const express = require('express');
+const bodyParser = require('body-parser');
+const mongoose = require('mongoose');
+const cors = require('cors'); 
+
+const app = express();
+const port = process.env.PORT || 3000;
+
+// Middleware
+app.use(cors());
+app.use(express.static('public'));
+
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
+
+// MongoDB Connection
+mongoose.connect('mongodb://127.0.0.1:27017/bookingApp');
+
+const db = mongoose.connection;
+
+db.on('error', (err) => {
+  console.error('MongoDB connection error:', err);
+});
+
+db.once('open', () => {
+  console.log('Connected to MongoDB');
+});
+
+// Define a Mongoose Schema and Model (You can customize this according to your data structure)
+const bookingSchema = new mongoose.Schema({
+  name: String,
+  contactNo: String,
+  date: Date,
+  email: String,
+  noOfPeople: Number,
+  preferableTransport: String,
+  suggestions: String,
+});
+
+const Booking = mongoose.model('Booking', bookingSchema);
+
+// API Routes
+
+// Create a new booking
+console.log("collection");
+app.post('/api/bookings', async (req, res) => {
+  const bookingData = req.body;
+
+  try {
+    const newBooking = new Booking(bookingData);
+    const savedBooking = await newBooking.save();
+    console.log('Booking saved successfully:', savedBooking);
+    res.status(200).json(savedBooking); // Respond with the saved booking data
+  } catch (err) {
+    console.error('Error saving booking:', err);
+    res.status(500).json({ error: 'Error saving booking' });
+  }
+});
+
+// Retrieve all bookings
+app.get('/api/bookings', async (req, res) => {
+  try {
+    const bookings = await Booking.find();
+    res.status(200).json(bookings);
+  } catch (err) {
+    console.error('Error retrieving bookings:', err);
+    res.status(500).json({ error: 'Error retrieving bookings' });
+  }
+});
+
+// Update a booking by ID
+app.put('/api/bookings/:id', async (req, res) => {
+  const bookingId = req.params.id;
+  const updatedBookingData = req.body; // Data to update the booking
+
+  try {
+    const updatedBooking = await Booking.findByIdAndUpdate(
+      bookingId,
+      updatedBookingData,
+      { new: true }
+    );
+
+    if (!updatedBooking) {
+      return res.status(404).json({ error: 'Booking not found' });
+    }
+
+    console.log('Booking updated successfully:', updatedBooking);
+    res.status(200).json(updatedBooking);
+  } catch (err) {
+    console.error('Error updating booking by ID:', err);
+    res.status(500).json({ error: 'Error updating booking by ID' });
+  }
+});
+
+
+// Delete a booking by ID
+app.delete('/api/bookings/:id', async (req, res) => {
+  const bookingId = req.params.id;
+
+  try {
+    const deletedBooking = await Booking.findByIdAndDelete(bookingId);
+
+    if (!deletedBooking) {
+      return res.status(404).json({ error: 'Booking not found' });
+    }
+
+    console.log('Booking deleted successfully:', deletedBooking);
+    res.status(200).json(deletedBooking);
+  } catch (err) {
+    console.error('Error deleting booking by ID:', err);
+    res.status(500).json({ error: 'Error deleting booking by ID' });
+  }
+});
+
+// Start the server
+app.listen(port, () => {
+  console.log(`Server is running on port ${port}`);
+});
+
+
+
+
+public/book.html:
+<!DOCTYPE html>
+<html ng-app="bookingApp">
+<head>
+  <title>Booking Page</title>
+  <style>
+    body {
+      background-color: #fec2e0; 
+      font-family: Arial, sans-serif;
+    }
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: white;
+      border-radius: 10px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    h1 {
+      color: #ff3399; 
+    }
+    form {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    label {
+      margin-top: 10px;
+      color: #ff3399;
+    }
+    input, textarea {
+      width: 100%;
+      padding: 10px;
+      margin-top: 5px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+    button {
+      margin-top: 10px;
+      padding: 10px 20px;
+      background-color: #ff3399;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    ul {
+      margin-top: 20px;
+      list-style: none;
+      padding: 0;
+    }
+    li {
+      padding: 10px;
+      border: 1px solid #ccc;
+      margin-bottom: 10px;
+      border-radius: 5px;
+    }
+  </style>
+  <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.2/angular.min.js"></script>
+  <script>
+    var app = angular.module('bookingApp', []);
+
+    app.factory('BookingFactory', function() {
+      var bookings = [];
+
+      return {
+        getAllBookings: function() {
+          return bookings;
+        },
+        addBooking: function(booking) {
+          bookings.push(booking);
+        },
+        removeBooking: function(index) {
+          if (index >= 0 && index < bookings.length) {
+            bookings.splice(index, 1);
+          }
+        },
+        updateBooking: function(index, updatedBooking) {
+          if (index >= 0 && index < bookings.length) {
+            bookings[index] = angular.copy(updatedBooking);
+          }
+        }
+      };
+    });
+
+    app.service('BookingService', ['BookingFactory', function(BookingFactory) {
+      this.getAllBookings = function() {
+        return BookingFactory.getAllBookings();
+      };
+      this.addBooking = function(booking) {
+        BookingFactory.addBooking(booking);
+      };
+      this.removeBooking = function(index) {
+        BookingFactory.removeBooking(index);
+      };
+      this.updateBooking = function(index, updatedBooking) {
+        BookingFactory.updateBooking(index, updatedBooking);
+      };
+    }]);
+
+    app.controller('BookingController', ['$scope', 'BookingService', '$http', function($scope, BookingService, $http) {
+      $scope.booking = {};
+      $scope.editedBooking = {};
+      $scope.isEditing = false;
+      $scope.editIndex = -1;
+
+      $scope.deleteName = ''; // Initialize the deleteName variable
+
+      $scope.bookingsList = BookingService.getAllBookings();
+
+      $scope.submitBooking = function() {
+        // Client-side validation example (you can add more)
+        if (!$scope.booking.name || !$scope.booking.date) {
+          alert("Name and date are required fields.");
+          return;
+        }
+
+        BookingService.addBooking($scope.booking);
+
+        // Simulate a successful POST request (adjust this for your server)
+        // In a real application, you would send a request to your server.
+        $http.post('http://localhost:3000/api/bookings', $scope.booking)
+          .then(function(response) {
+            console.log(response.data);
+            $scope.bookingsList = BookingService.getAllBookings();
+            $scope.booking = {};
+            alert("Booking submitted successfully!");
+          })
+          .catch(function(error) {
+            console.error(error);
+            alert("Error submitting booking.");
+          });
+      };
+
+      $scope.removeBooking = function(index) {
+        BookingService.removeBooking(index);
+
+        // Simulate a successful DELETE request (adjust this for your server)
+        // In a real application, you would send a request to your server.
+        $http.delete('http://localhost:3000/api/bookings/' + index)
+          .then(function(response) {
+            console.log(response.data);
+            $scope.bookingsList = BookingService.getAllBookings();
+          })
+          .catch(function(error) {
+            console.error(error);
+            alert("Error deleting booking.");
+          });
+      };
+
+      $scope.editBooking = function(index) {
+        $scope.editIndex = index;
+        $scope.isEditing = true;
+        $scope.editedBooking = angular.copy($scope.bookingsList[index]); // Create a copy for editing
+      };
+
+      $scope.updateBooking = function() {
+  if (!$scope.editedBooking.name) {
+    alert("Booking name is required for updating.");
+    return;
+  }
+
+  $http.put('http://localhost:3000/api/bookings/name/' + $scope.editedBooking.name, $scope.editedBooking)
+    .then(function(response) {
+      console.log(response.data);
+      BookingService.updateBooking($scope.editIndex, $scope.editedBooking);
+      $scope.isEditing = false; // Hide the edit form
+    })
+    .catch(function(error) {
+      console.error(error);
+      alert("Error updating booking.");
+    });
+};
+
+
+      $scope.cancelEdit = function() {
+        $scope.isEditing = false; // Hide the edit form
+        $scope.editedBooking = {}; // Clear the edited booking data
+      };
+
+      $scope.deleteBookingByName = function() {
+        const nameToDelete = $scope.deleteName;
+
+        if (!nameToDelete) {
+          alert("Please enter a name to delete.");
+          return;
+        }
+
+        // Simulate a DELETE request to delete by name (adjust this for your server)
+        $http.delete('http://localhost:3000/api/bookings/name/' + nameToDelete)
+          .then(function(response) {
+            console.log(response.data);
+            $scope.bookingsList = BookingService.getAllBookings();
+            alert("Booking deleted successfully!");
+          })
+          .catch(function(error) {
+            console.error(error);
+            alert("Booking deleted successfully!");
+          });
+      };
+    }]);
+  </script>
+</head>
+<body>
+  <div class="container" ng-controller="BookingController">
+    <h1>Booking Page</h1>
+    <form ng-submit="submitBooking()">
+      <label>Name:</label>
+      <input type="text" ng-model="booking.name" required>
+    
+      <label>Contact No:</label>
+      <input type="text" ng-model="booking.contactNo" required>
+    
+      <label>Date:</label>
+      <input type="date" ng-model="booking.date" required>
+    
+      <label>Email:</label>
+      <input type="email" ng-model="booking.email" required>
+    
+      <label>No of People:</label>
+      <input type="number" ng-model="booking.noOfPeople" required>
+    
+      <label>Preferable Transport:</label>
+      <input type="text" ng-model="booking.preferableTransport">
+    
+      <label>Suggestions:</label>
+      <textarea ng-model="booking.suggestions"></textarea>
+      <button type="submit">Submit Booking</button>
+    </form>
+    
+    <h2>Bookings List</h2>
+    <ul>
+      <li ng-repeat="bookingItem in bookingsList">
+        <strong>Name:</strong> {{ bookingItem.name }},
+        <strong>Contact:</strong> {{ bookingItem.contactNo }},
+        <strong>Date:</strong> {{ bookingItem.date }},
+        <strong>Email:</strong> {{ bookingItem.email }},
+        <strong>No of People:</strong> {{ bookingItem.noOfPeople }},
+        <strong>Transport:</strong> {{ bookingItem.preferableTransport }},
+        <strong>Suggestions:</strong> {{ bookingItem.suggestions }}
+        <button ng-click="removeBooking($index)">Remove</button>
+        <button ng-click="editBooking($index)">Edit</button>
+      </li>
+    </ul>
+    
+    <!-- Input field and button for deleting by name -->
+    <label>Enter Name to Delete:</label>
+    <input type="text" ng-model="deleteName">
+    <button ng-click="deleteBookingByName()">Delete by Name</button>
+    
+    <!-- Edit form -->
+    <div ng-show="isEditing" class="edit-form">
+      <h2>Edit Booking</h2>
+      <form ng-submit="updateBooking()">
+        <label>Name:</label>
+        <input type="text" ng-model="editedBooking.name" required>
+    
+        <label>Contact No:</label>
+        <input type="text" ng-model="editedBooking.contactNo" required>
+    
+        <label>Date:</label>
+        <input type="date" ng-model="editedBooking.date" required>
+    
+        <label>Email:</label>
+        <input type="email" ng-model="editedBooking.email" required>
+    
+        <label>No of People:</label>
+        <input type="number" ng-model="editedBooking.noOfPeople" required>
+    
+        <label>Preferable Transport:</label>
+        <input type="text" ng-model="editedBooking.preferableTransport">
+    
+        <label>Suggestions:</label>
+        <textarea ng-model="editedBooking.suggestions"></textarea>
+        <button type="submit">Update Booking</button>
+        <button type="button" ng-click="cancelEdit()">Cancel</button>
+      </form>
+    </div>
+  </div>
+</body>
+</html>

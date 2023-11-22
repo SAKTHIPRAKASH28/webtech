@@ -1,0 +1,246 @@
+app.js:
+var app=angular.module('MyApp',[]);
+app.controller('MyCtrl',['$scope','busService','$http',function($scope,busService,$http){
+     $scope.busList=busService.getList();
+     $scope.user=null;
+     $scope.BookingConfirmed=false;
+     $scope.selectedBus=null;
+    
+  
+   $scope.bookedTickets=[];
+  
+   function fetchReviews() {
+     $http.get("http://localhost:3000/getBookDetails").then((res) => {
+         $scope.bookedTickets = res.data;
+         console.log($scope.bookedTickets);
+     }).catch((err) => {
+         console.log(err);
+     });
+ }
+
+     $scope.login=function() {
+       if($scope.username){
+        $scope.user={username:$scope.username};
+       }
+     };
+     $scope.viewDetails=function(bus){
+        $scope.selectedBus=bus;
+     };
+     $scope.BookNow=function(){
+      
+        if($scope.selectedBus!=null){
+  
+          $http.post("http://localhost:3000/bookTicket", {
+               name: $scope.username,
+               source: $scope.selectedBus.source,
+               destination: $scope.selectedBus.destination,
+               seat_no :$scope.seat,
+               cost:$scope.selectedBus.cost,
+             }).then((res) => {
+                fetchReviews();
+                 $scope.BookingConfirmed = true;
+               console.log(res.data);
+             }).catch((err) => {
+               console.log(err);
+             });
+   
+        }
+      
+     };
+
+$scope.removeTicket=function(ticket){
+     $http.delete(`http://localhost:3000/deleteTicket/${ticket._id}`)
+     .then((res)=>{
+      alert("ticket deleted successfully",res.data);
+     }).catch((err)=>{
+      console.log(err);
+     })
+};
+    
+}]);
+app.factory('busService',function(){
+     var busList=[
+     { name: 'Bus A', source: 'City1', destination: 'City2' ,cost:500},
+{ name: 'Bus B', source: 'City2', destination: 'City3' ,cost:800},
+{ name: 'Bus C', source: 'City1', destination: 'City3' ,cost:459},
+     ];
+     return {getList:function(){
+return busList;
+     }
+     };
+});
+app.directive('highlightOnClick', function () {
+  return {
+      restrict: 'A',
+      link: function (scope, element) {
+          element.on('click', function () {
+              element.css('background-color', 'yellow');
+              scope.$on('$destroy', function () {
+                  element.off('click');
+              });
+          });
+      }
+  };
+});
+
+
+
+index.html:
+<!DOCTYPE html>
+<html ng-app="MyApp">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.6.9/angular.min.js"></script>
+    <script src="app.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+
+<body ng-controller="MyCtrl" class="p-4">
+
+    <h2 class="text-2xl font-bold mb-4">Red Bus Booking System</h2>
+
+    <label for="username">Username:</label>
+    <input type="text" ng-model="username">
+    <button ng-click="login()" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+        Login
+    </button>
+
+    <div ng-if="user" class="mt-4">
+
+        <label for="source">Filter by Source City</label>
+        <input type="text" ng-model="source">
+
+        <label for="destination">Filter by Destination City</label>
+        <input type="text" ng-model="destination">
+
+        <ul class="list-disc pl-4">
+            <li ng-repeat-start="bus in busList | filter:source | filter:destination" class="my-2">
+                {{bus.name}} - {{bus.source}} to {{bus.destination}}
+                <button ng-click="viewDetails(bus)"
+                    class="bg-green-500 hover:bg-green-700 text-white font-bold py-1 px-2 rounded">
+                    Click me
+                </button>
+            </li>
+            <li ng-repeat-end highlight-on-click></li>
+        </ul>
+
+    </div>
+
+    <div ng-if="selectedBus" class="mt-4">
+        <h3 class="text-xl font-bold">Information regarding buses</h3>
+        <p>Name: {{selectedBus.name}}</p>
+        <p>Source: {{selectedBus.source}}</p>
+        <p>Destination: {{selectedBus.destination}}</p>
+        <p>Cost :{{selectedBus.cost}}</p>
+        <label for="seat">Seat Number</label>
+        <input type="text" ng-model="seat">
+        <button ng-click="BookNow()"
+            class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+            Book Now
+        </button>
+    </div>
+
+    <div ng-if="BookingConfirmed" class="mt-4">
+        <h3 class="text-xl font-bold">Booking Confirmed</h3>
+        <p>Thanks for choosing us</p>
+    </div>
+
+    <div ng-repeat="ticket in bookedTickets" class="border p-2 mt-4">
+        <h4 class="text-lg font-bold">Booked Ticket Details</h4>
+        <p>Name: {{ticket.name}}</p>
+        <p>Source: {{ticket.source}}</p>
+        <p>Destination: {{ticket.destination}}</p>
+        <p>Seat Number: {{ticket.seat_no}}</p>
+        <button ng-click="removeTicket(ticket)"
+            class="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded">
+            REMOVE
+        </button>
+    </div>
+
+</body>
+
+</html>
+
+
+
+script.js:
+const express = require('express');
+const mongoose = require('mongoose');
+const bodyParser = require('body-parser');
+const cors = require('cors');
+
+const app = express();
+app.use(express.static(__dirname));
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(cors());
+app.use(bodyParser.json());
+app.use(express.json());
+const mongoURI = "mongodb://127.0.0.1:27017/Sanjay";
+
+
+mongoose.connect(mongoURI)
+    .then(() => {
+        console.log("MongoDB connected");
+        app.listen(3000, () => {
+            console.log("Server started on port 3000");
+        });
+    })
+    .catch((err) => {
+        console.error("MongoDB connection error:", err);
+    });
+
+const custSchema = new mongoose.Schema({
+  name: String,
+  source: String,
+  destination: String,
+  seat_no: String,
+  cost:String
+});
+
+const View = mongoose.model('View', custSchema);
+
+
+app.post('/bookTicket', async (req, res) => {
+  try {
+      const { name,source,destination,seat_no ,cost} = req.body; 
+      const Userdata = new View({ name, source,destination,seat_no,cost});
+
+
+      await Userdata.save();
+
+      res.json({ message: "Customer  submitted successfully" });
+  } catch (error) {
+      console.error("Error:", error);
+      res.status(500).json({ error: "Customer submission failed" });
+  }
+});
+app.get('/getBookDetails',async (req,res)=>{
+try{
+const boookedTickets= await View.find();
+res.json(boookedTickets);
+}
+catch(error){
+  console.log(error);
+  res.status(500).send("Error retireving the details ");
+}
+});
+app.delete('/deleteTicket/:id', async (req, res) => {
+  try {
+    const id = req.params.id;
+    console.log("Deleting ticket with ID:", id);
+
+  const DelTicket=await View.findByIdAndDelete({_id:id});
+
+    if (!DelTicket) {
+      return res.status(404).send("Error: Ticket not found");
+    }
+
+    console.log("Ticket deleted successfully");
+    res.json({ message: "Ticket deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting ticket:", error);
+    res.status(500).send("Internal Server Error");
+  }
+});
